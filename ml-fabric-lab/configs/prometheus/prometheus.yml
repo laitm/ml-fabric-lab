@@ -1,0 +1,46 @@
+scrape_configs:
+  - job_name: gnmic
+    metrics_path: /metrics
+    scheme: http
+
+    static_configs:
+      - targets:
+          - gnmic:9804
+        labels:
+          exporter: gnmic
+          stack: telemetry
+
+    relabel_configs:
+      # --------------------------------------------------
+      # Use gNMIc "source" label as device name
+      # (e.g. leaf1, spine2)
+      # --------------------------------------------------
+      - source_labels: [source]
+        target_label: device
+        regex: (.+)
+
+      # --------------------------------------------------
+      # Set instance = device (Grafana convention)
+      # --------------------------------------------------
+      - source_labels: [device]
+        target_label: instance
+        regex: (.+)
+
+      # --------------------------------------------------
+      # Derive role from device name
+      # --------------------------------------------------
+      - source_labels: [device]
+        target_label: role
+        regex: (leaf.*)
+        replacement: leaf
+
+      - source_labels: [device]
+        target_label: role
+        regex: (spine.*)
+        replacement: spine
+
+      # --------------------------------------------------
+      # Drop noisy internal labels if desired (optional)
+      # --------------------------------------------------
+      - action: labeldrop
+        regex: subscription_name|path|encoding
