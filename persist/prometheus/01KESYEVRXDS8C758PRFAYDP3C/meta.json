@@ -1,0 +1,18 @@
+{
+	"ulid": "01KESYEVRXDS8C758PRFAYDP3C",
+	"minTime": 1768239012535,
+	"maxTime": 1768240800000,
+	"stats": {
+		"numSamples": 27979,
+		"numFloatSamples": 27979,
+		"numSeries": 4164,
+		"numChunks": 4164
+	},
+	"compaction": {
+		"level": 1,
+		"sources": [
+			"01KESYEVRXDS8C758PRFAYDP3C"
+		]
+	},
+	"version": 1
+}

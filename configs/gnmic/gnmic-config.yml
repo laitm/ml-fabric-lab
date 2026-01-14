@@ -1,0 +1,175 @@
+username: admin
+password: admin
+port: 6030
+timeout: 10s
+skip-verify: true
+encoding: json_ietf
+#debug: true
+
+targets:
+  spine1:
+    address: spine1:6030
+    insecure: true
+  spine2:
+    address: spine2:6030
+    insecure: true
+  leaf1:
+    address: leaf1:6030
+    insecure: true
+  leaf2:
+    address: leaf2:6030
+    insecure: true
+  leaf3:
+    address: leaf3:6030
+    insecure: true
+  leaf4:
+    address: leaf4:6030
+    insecure: true
+
+subscriptions:
+  bgp_neighbors:
+    paths:
+      - /network-instances/network-instance[name=default]/protocols/protocol[name=BGP]/bgp/neighbors
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  cpu:
+    paths:
+      - components/component/cpu
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  cpu_load_avg:
+    paths:
+      - eos_native:/Kernel/sysinfo
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  mem:
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+    paths:
+      - components/component/state/memory
+      - system/memory/kernel/state
+      - system/memory/state
+
+  sw_info:
+    paths:
+      - components/component/state/software-version
+      - components/component/state/serial-no
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  intf_ctrs:
+    paths:
+      - /interfaces/interface[name=*]/state/counters
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  intf_admin_state:
+    paths:
+      - /interfaces/interface[name=*]/state/admin-status
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  intf_oper_state:
+    paths:
+      - /interfaces/interface[name=*]/state/oper-status
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  intf_config:
+    paths:
+      - interfaces/interface/subinterfaces/subinterface/ipv4/addresses/address/config
+    mode: stream
+    stream-mode: sample
+    sample-interval: 5s
+
+  show_ver:
+    paths:
+    - eos_native:/Eos/image
+    mode: stream
+    stream-mode: sample
+    sample-interval: 60s
+
+  boot_time:
+    paths:
+    - system/state/boot-time
+    mode: stream
+    stream-mode: sample
+    sample-interval: 60s
+
+  hardware:
+    paths:
+    - components/component/state
+    - eos_native:/Sysdb/hardware/entmib
+    mode: stream
+    stream-mode: sample
+    sample-interval: 60s
+
+outputs:
+  prom-output:
+    type: prometheus
+    listen: "0.0.0.0:9804"
+    metric-prefix: gnmic
+    append-subscription-name: true
+    strings-as-labels: true
+    export-timestamps: true
+    debug: false
+    event-processors:
+      - trim-prefixes
+      - bounce-map
+      - eos-version
+      # - tag-status
+      #- set-timestamp-processor
+  # stdout:
+  #   type: file
+  #   file-type: stdout
+  #   event-processors:
+  #     - proc-convert-strings-to-int
+  #     - trim-prefixes
+
+processors:
+  eos-version:
+    event-strings:
+      value-names:
+        - ".*version$"
+        - ".*arch$"
+      transforms:
+        - replace:
+            apply-on: "value"
+            old: "EOS"
+            new: "eos"
+    # event-to-tag:
+    #   value-names:
+    #     - ".*version$"
+    #     - ".*arch$"
+  trim-prefixes:
+    event-strings:
+      value-names:
+        - ".*"
+      transforms:
+        - path-base:
+            apply-on: "name"
+  bounce-map:
+    event-strings:
+      value-names:
+        - oper-status
+        - admin-status
+      transforms:
+        - replace:
+            apply-on: "value"
+            old: "UP"
+            new: "1"
+        - replace:
+            apply-on: "value"
+            old: "DOWN"
+            new: "0"
