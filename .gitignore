@@ -1,4 +1,16 @@
-clab-*
+# Containerlab generated lab directory (when using -d or default output)
+clab-*/
+
+# Optional: common backup/temp files
 *.clab.yml.bak
+*.bak
+*.swp
+
+# Debug outputs (keep folder via .gitkeep)
 debug/*
 !debug/.gitkeep
+
+# Containerlab artifacts (uncomment if you create these)
+# .cl
+
+persist/*
