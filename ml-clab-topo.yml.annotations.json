@@ -1,0 +1,116 @@
+{
+  "freeTextAnnotations": [],
+  "freeShapeAnnotations": [],
+  "groupStyleAnnotations": [],
+  "networkNodeAnnotations": [],
+  "nodeAnnotations": [
+    {
+      "id": "leaf2",
+      "position": {
+        "x": 119,
+        "y": 245
+      }
+    },
+    {
+      "id": "host2",
+      "position": {
+        "x": 259,
+        "y": 315
+      }
+    },
+    {
+      "id": "leaf3",
+      "position": {
+        "x": 203,
+        "y": 245
+      }
+    },
+    {
+      "id": "leaf1",
+      "position": {
+        "x": 49,
+        "y": 245
+      }
+    },
+    {
+      "id": "spine1",
+      "position": {
+        "x": 91,
+        "y": 161
+      }
+    },
+    {
+      "id": "leaf4",
+      "position": {
+        "x": 259,
+        "y": 245
+      }
+    },
+    {
+      "id": "ntopng",
+      "position": {
+        "x": -7,
+        "y": 245
+      }
+    },
+    {
+      "id": "host1",
+      "position": {
+        "x": 49,
+        "y": 315
+      }
+    },
+    {
+      "id": "gnmic",
+      "position": {
+        "x": -7,
+        "y": 133
+      }
+    },
+    {
+      "id": "grafana",
+      "position": {
+        "x": 21,
+        "y": 119
+      }
+    },
+    {
+      "id": "alloy",
+      "position": {
+        "x": 49,
+        "y": 105
+      }
+    },
+    {
+      "id": "loki",
+      "position": {
+        "x": -35,
+        "y": 161
+      }
+    },
+    {
+      "id": "redis",
+      "position": {
+        "x": -91,
+        "y": 217
+      }
+    },
+    {
+      "id": "prometheus",
+      "position": {
+        "x": -63,
+        "y": 189
+      }
+    },
+    {
+      "id": "spine2",
+      "position": {
+        "x": 203,
+        "y": 161
+      }
+    }
+  ],
+  "edgeAnnotations": [],
+  "aliasEndpointAnnotations": [],
+  "viewerSettings": {}
+}

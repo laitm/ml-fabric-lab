@@ -1,0 +1,179 @@
+loki.write "to_loki" {
+  endpoint {
+    url = "http://clab-arista-evpn-vxlan-lab-loki:3100/loki/api/v1/push"
+  }
+}
+
+discovery.relabel "syslog_rules" {
+  targets = []
+
+  // -----------------------------
+  // Host handling
+  // -----------------------------
+
+  // Set host from parsed message hostname (RFC3164/RFC5424)
+  rule {
+    action        = "replace"
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
+    regex         = "(.+)"
+  }
+
+  // Clear RFC NILVALUE "-"
+  rule {
+    action        = "replace"
+    source_labels = ["host"]
+    target_label  = "host"
+    regex         = "^-+$"
+    replacement   = ""
+  }
+
+  // Always keep sender connection IP
+  rule {
+    action        = "replace"
+    source_labels = ["__syslog_connection_ip_address"]
+    target_label  = "sender_ip"
+    regex         = "(.+)"
+  }
+
+  // Syslog facility
+  rule {
+    action        = "replace"
+    source_labels = ["__syslog_message_facility"]
+    target_label  = "facility"
+    regex         = "(.+)"
+  }
+
+  // Application name
+  rule {
+    action        = "replace"
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+    regex         = "(.+)"
+  }
+
+  // -----------------------------
+  // Syslog severity (canonicalized)
+  // -----------------------------
+
+  // Keep original severity label (0-7)
+  rule {
+    action        = "replace"
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "severity"
+    regex         = "([0-7])"
+    replacement   = "$1"
+  }
+
+  // Canonical severity number (string 0-7)
+  rule {
+    action        = "replace"
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "severity_num"
+    regex         = "([0-7])"
+    replacement   = "$1"
+  }
+
+  // Canonical severity name from severity_num
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^0$"
+    replacement   = "emerg"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^1$"
+    replacement   = "alert"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^2$"
+    replacement   = "crit"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^3$"
+    replacement   = "err"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^4$"
+    replacement   = "warn"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^5$"
+    replacement   = "notice"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^6$"
+    replacement   = "info"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["severity_num"]
+    target_label  = "severity_name"
+    regex         = "^7$"
+    replacement   = "debug"
+  }
+
+  // Fallback: if host is empty, use sender IP
+  rule {
+    action        = "replace"
+    source_labels = ["host", "__syslog_connection_ip_address"]
+    target_label  = "host"
+    regex         = "^$;(.+)"
+    replacement   = "$1"
+  }
+}
+
+//
+// Listener 1: RFC5424 on UDP 1514 (messages like "<PRI>1 2026-...")
+//
+loki.source.syslog "ceos_5424" {
+  listener {
+    address       = "0.0.0.0:1514"
+    protocol      = "udp"
+    syslog_format = "rfc5424"
+
+    labels = {
+      job = "ceos-syslog",
+    }
+  }
+
+  relabel_rules = discovery.relabel.syslog_rules.rules
+  forward_to    = [loki.write.to_loki.receiver]
+}
+
+//
+// Listener 2: RFC3164 on UDP 1515 (messages like "<PRI>Jan 14 18:53:27 ...")
+//
+loki.source.syslog "ceos_3164" {
+  listener {
+    address       = "0.0.0.0:1515"
+    protocol      = "udp"
+    syslog_format = "rfc3164"
+
+    labels = {
+      job = "ceos-syslog",
+    }
+  }
+
+  relabel_rules = discovery.relabel.syslog_rules.rules
+  forward_to    = [loki.write.to_loki.receiver]
+}

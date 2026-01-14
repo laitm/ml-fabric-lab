@@ -1,0 +1,45 @@
+all:
+  vars:
+    # The generated inventory is assumed to be used from the clab host.
+    # Hence no http proxy should be used. Therefore we make sure the http
+    # module does not attempt using any global http proxy.
+    ansible_httpapi_use_proxy: false
+  children:
+    arista_ceos:
+      vars:
+        # ansible_connection: set ansible_connection variable if required
+        ansible_user: admin
+        ansible_password: admin
+      hosts:
+        clab-arista-evpn-vxlan-lab-leaf1:
+          ansible_host: 172.20.20.21
+        clab-arista-evpn-vxlan-lab-leaf2:
+          ansible_host: 172.20.20.22
+        clab-arista-evpn-vxlan-lab-leaf3:
+          ansible_host: 172.20.20.23
+        clab-arista-evpn-vxlan-lab-leaf4:
+          ansible_host: 172.20.20.24
+        clab-arista-evpn-vxlan-lab-spine1:
+          ansible_host: 172.20.20.11
+        clab-arista-evpn-vxlan-lab-spine2:
+          ansible_host: 172.20.20.12
+    linux:
+      hosts:
+        clab-arista-evpn-vxlan-lab-alloy:
+          ansible_host: 172.20.20.216
+        clab-arista-evpn-vxlan-lab-gnmic:
+          ansible_host: 172.20.20.213
+        clab-arista-evpn-vxlan-lab-grafana:
+          ansible_host: 172.20.20.215
+        clab-arista-evpn-vxlan-lab-host1:
+          ansible_host: 172.20.20.101
+        clab-arista-evpn-vxlan-lab-host2:
+          ansible_host: 172.20.20.102
+        clab-arista-evpn-vxlan-lab-loki:
+          ansible_host: 172.20.20.217
+        clab-arista-evpn-vxlan-lab-ntopng:
+          ansible_host: 172.20.20.219
+        clab-arista-evpn-vxlan-lab-prometheus:
+          ansible_host: 172.20.20.214
+        clab-arista-evpn-vxlan-lab-redis:
+          ansible_host: 172.20.20.218

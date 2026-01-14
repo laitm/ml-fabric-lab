@@ -1,0 +1,265 @@
+# ==========================================================
+# Containerlab Topology: Arista EVPN/VXLAN (eBGP) Fabric
+#
+# - 2x Arista spines (eBGP underlay + EVPN overlay route-servers)
+# - 4x Arista leafs (VTEPs running VXLAN + EVPN)
+# - Each leaf has 4 routed uplinks total:
+#     * 2 links to spine1
+#     * 2 links to spine2
+# - 2 Linux hosts attached to independent leafs for traffic testing
+#     * host1 -> leaf1 (VLAN 10)
+#     * host2 -> leaf4 (VLAN 10)
+#
+# Host auto-config:
+# - host1 gets 192.168.10.101/24 + default route via 192.168.10.1
+# - host2 gets 192.168.10.102/24 + default route via 192.168.10.1
+#
+# Anycast gateway:
+# - Provided by leaf1 and leaf4 using VARP
+# - Gateway IP: 192.168.10.1/24 (VLAN 10)
+# ==========================================================
+
+name: arista-evpn-vxlan-lab
+
+mgmt:
+  # Containerlab management network (out-of-band for all nodes)
+  network: clab-mgmt
+  ipv4-subnet: 172.20.20.0/24
+
+topology:
+  kinds:
+    # Arista cEOS for spines/leafs
+    arista_ceos:
+      image: ceos:4.35.1F
+
+    # Linux utility image including ping, ip, tcpdump, iperf3, etc.
+    linux:
+      image: ghcr.io/hellt/network-multitool:latest
+
+  nodes:
+    # ----------------------------
+    # Spines (AS 65000 in configs)
+    # ----------------------------
+    spine1:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.11
+      startup-config: configs/fabric/spine1.cfg
+      group: spine
+
+    spine2:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.12
+      startup-config: configs/fabric/spine2.cfg
+      group: spine
+
+    # ----------------------------
+    # Leafs (AS 65101-65104)
+    # Leaf uplinks use eth1-eth4
+    # Host access uses eth10
+    # ----------------------------
+    leaf1:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.21
+      startup-config: configs/fabric/leaf1.cfg
+      group: leaf
+
+    leaf2:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.22
+      startup-config: configs/fabric/leaf2.cfg
+      group: leaf
+
+    leaf3:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.23
+      startup-config: configs/fabric/leaf3.cfg
+      group: leaf
+
+    leaf4:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.24
+      startup-config: configs/fabric/leaf4.cfg
+      group: leaf
+
+    # ----------------------------
+    # Hosts (auto-config at deploy)
+    # Note: eth1 is the data-plane link into the fabric.
+    # ----------------------------
+    host1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.101
+      exec:
+        # Bring the fabric-facing interface up
+        - ip link set eth1 up
+        - ip link set dev eth1 mtu 1500
+
+        # IP + default route
+        - ip addr add 192.168.10.101/24 dev eth1
+        - ip route replace default via 192.168.10.1
+
+        # Continuous multi-flow iperf client for duration of lab
+        - |
+          sh -lc '
+          set -eu
+          LOG=/tmp/iperf3_host1_to_host2.txt
+
+          # Ensure log file exists immediately
+          touch $LOG
+
+          # Wait for host2 reachability (EVPN/VXLAN convergence)
+          for i in $(seq 1 120); do
+            if ping -c 1 -W 1 192.168.10.102 >/dev/null 2>&1; then
+              echo "$(date -Iseconds) host2 reachable" >> $LOG
+              break
+            fi
+            echo "$(date -Iseconds) waiting for host2..." >> $LOG
+            sleep 1
+          done
+
+          # Run continuous traffic in background
+          nohup sh -lc "
+            while true; do
+              echo \"=== \$(date -Iseconds) starting iperf run ===\"
+              iperf3 -c 192.168.10.102 -P 10 -t 60 -i 5 --get-server-output
+              echo \"=== \$(date -Iseconds) iperf run complete ===\"
+              sleep 2
+            done
+          " >> $LOG 2>&1 &
+          '
+
+    host2:
+      kind: linux
+      mgmt-ipv4: 172.20.20.102
+      exec:
+        - ip link set eth1 up
+        - ip link set dev eth1 mtu 1500
+        - ip addr add 192.168.10.102/24 dev eth1
+        - ip route replace default via 192.168.10.1
+        # Start iperf3 server in daemon mode (perf server)
+        - sh -lc 'pkill iperf3 || true; iperf3 -s -D'
+
+    ### TELEMETRY STACK ###
+    gnmic:
+      kind: linux
+      image: ghcr.io/openconfig/gnmic:latest
+      mgmt-ipv4: 172.20.20.213
+      binds:
+        - configs/gnmic/gnmic-config.yml:/gnmic-config.yml:ro
+      cmd: subscribe --config /gnmic-config.yml --log
+      ports:
+        - 9804:9804
+      group: 10
+
+    prometheus:
+      kind: linux
+      mgmt-ipv4: 172.20.20.214
+      image: quay.io/prometheus/prometheus:latest
+      binds:
+        - configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+        - ./persist/prometheus:/prometheus
+      cmd: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus"
+      ports:
+        - 9090:9090
+      group: 10
+
+    grafana:
+      kind: linux
+      mgmt-ipv4: 172.20.20.215
+      image: grafana/grafana:latest
+      dns:
+        servers: [1.1.1.1, 8.8.8.8]
+      binds:
+        - configs/grafana/provisioning:/etc/grafana/provisioning:ro
+        - configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
+        - configs/grafana/grafana-resolv.conf:/etc/resolv.conf:ro
+        - configs/grafana/plugins:/var/lib/grafana/plugins
+        - ./persist/grafana:/var/lib/grafana
+      env:
+        GF_SECURITY_ADMIN_USER: admin
+        GF_SECURITY_ADMIN_PASSWORD: admin
+        GF_USERS_ALLOW_SIGN_UP: "false"
+        # Stop update checks + plugin update checks
+        GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+        GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+        # Optional: disable anonymous usage reporting too (keeps logs clean)
+        GF_ANALYTICS_REPORTING_ENABLED: "false"
+        # Only needed if you ever see "unsigned plugin" warnings for Flow
+        # GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "andrewbmchugh-flow-panel"
+      ports:
+        - 3000:3000
+      group: 10
+    ### LOGGING STACK ###
+    alloy:
+      kind: linux
+      mgmt-ipv4: 172.20.20.216
+      image: grafana/alloy:latest
+      binds:
+        - configs/alloy:/etc/alloy:ro
+      cmd: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+      ports:
+        # Syslog receiver (high port avoids privileged 514)
+        - 1514:1514/udp
+        - 1514:1514/tcp
+        # Alloy debug/UI endpoint (optional but useful)
+        - 12345:12345/tcp
+      group: 10
+
+    loki:
+      kind: linux
+      mgmt-ipv4: 172.20.20.217
+      image: grafana/loki:3.2.0
+      binds:
+        - configs/loki:/etc/loki:ro
+        - ./persist/loki:/loki
+      cmd: --config.file=/etc/loki/loki-config.yml
+      ports:
+        - 3100:3100
+      group: 10
+    ### NTOP ###
+    redis:
+      kind: linux
+      image: redis:7-alpine
+      mgmt-ipv4: 172.20.20.218
+      binds:
+        - ./persist/redis:/data
+
+    ntopng:
+      kind: linux
+      image: ntop/ntopng:latest
+      mgmt-ipv4: 172.20.20.219
+      cmd: /bin/sh -lc 'exec ntopng --community --redis redis -i eth1 --disable-autologout'
+      binds:
+        - ./persist/ntopng:/var/lib/ntopng
+      ports:
+        - 3001:3000/tcp
+  links:
+    # ==========================================================
+    # Leaf1 uplinks: 1x to spine1 + 1x to spine2
+    # ==========================================================
+    - endpoints: ["leaf1:eth1", "spine1:eth1"]
+    - endpoints: ["leaf1:eth2", "spine2:eth1"]
+    - endpoints: ["leaf1:eth5", "ntopng:eth1"]
+
+    # ==========================================================
+    # Leaf2 uplinks
+    # ==========================================================
+    - endpoints: ["leaf2:eth1", "spine1:eth3"]
+    - endpoints: ["leaf2:eth2", "spine2:eth3"]
+
+    # ==========================================================
+    # Leaf3 uplinks
+    # ==========================================================
+    - endpoints: ["leaf3:eth1", "spine1:eth5"]
+    - endpoints: ["leaf3:eth2", "spine2:eth5"]
+
+    # ==========================================================
+    # Leaf4 uplinks
+    # ==========================================================
+    - endpoints: ["leaf4:eth1", "spine1:eth7"]
+    - endpoints: ["leaf4:eth2", "spine2:eth7"]
+
+    # ==========================================================
+    # Host access links (untagged access into VLAN 10)
+    # ==========================================================
+    - endpoints: ["host1:eth1", "leaf1:eth10"]
+    - endpoints: ["host2:eth1", "leaf4:eth10"]
