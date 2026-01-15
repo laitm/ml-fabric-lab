@@ -54,7 +54,7 @@ topology:
 
     # ----------------------------
     # Leafs (AS 65101-65104)
-    # Leaf uplinks use eth1-eth4
+    # Leaf uplinks use eth1-eth2
     # Host access uses eth10
     # ----------------------------
     leaf1:
