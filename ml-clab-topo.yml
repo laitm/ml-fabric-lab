@@ -143,6 +143,22 @@ topology:
       kind: linux
       image: ghcr.io/openconfig/gnmic:latest
       mgmt-ipv4: 172.20.20.213
+      startup-delay: 120
+      stages:
+        create:
+          wait-for:
+            - node: spine1
+              stage: create
+            - node: spine2
+              stage: create
+            - node: leaf1
+              stage: create
+            - node: leaf2
+              stage: create
+            - node: leaf3
+              stage: create
+            - node: leaf4
+              stage: create
       binds:
         - configs/gnmic/gnmic-config.yml:/gnmic-config.yml:ro
       cmd: subscribe --config /gnmic-config.yml --log

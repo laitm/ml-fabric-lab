@@ -2,9 +2,9 @@ username: admin
 password: admin
 port: 6030
 timeout: 10s
-skip-verify: true
+insecure: true
 encoding: json_ietf
-#debug: true
+# debug: true
 
 targets:
   spine1:
@@ -36,7 +36,7 @@ subscriptions:
 
   cpu:
     paths:
-      - components/component/cpu
+      - /components/component[name=*]/cpu
     mode: stream
     stream-mode: sample
     sample-interval: 5s
@@ -49,21 +49,21 @@ subscriptions:
     sample-interval: 5s
 
   mem:
+    paths:
+      - /components/component[name=*]/state/memory
+      - /system/memory/kernel/state
+      - /system/memory/state
     mode: stream
     stream-mode: sample
     sample-interval: 5s
-    paths:
-      - components/component/state/memory
-      - system/memory/kernel/state
-      - system/memory/state
 
   sw_info:
     paths:
-      - components/component/state/software-version
-      - components/component/state/serial-no
+      - /components/component[name=*]/state/software-version
+      - /components/component[name=*]/state/serial-no
     mode: stream
     stream-mode: sample
-    sample-interval: 5s
+    sample-interval: 60s
 
   intf_ctrs:
     paths:
@@ -86,31 +86,66 @@ subscriptions:
     stream-mode: sample
     sample-interval: 5s
 
-  intf_config:
+  intf_state:
     paths:
-      - interfaces/interface/subinterfaces/subinterface/ipv4/addresses/address/config
+      - /interfaces/interface[name=*]/state
     mode: stream
     stream-mode: sample
-    sample-interval: 5s
+    sample-interval: 30s
+
+  intf_config:
+    paths:
+      - /interfaces/interface[name=*]/subinterfaces/subinterface[index=*]/ipv4/addresses/address[ip=*]/config
+    mode: stream
+    stream-mode: sample
+    sample-interval: 30s
+
+  lldp_neighbors:
+    paths:
+      - /lldp/interfaces/interface[name=*]/neighbors/neighbor/state
+    mode: stream
+    stream-mode: sample
+    sample-interval: 30s
+
+  lldp_counters:
+    paths:
+      - /lldp/interfaces/interface[name=*]/state/counters
+    mode: stream
+    stream-mode: sample
+    sample-interval: 30s
 
   show_ver:
     paths:
-    - eos_native:/Eos/image
+      - eos_native:/Eos/image
     mode: stream
     stream-mode: sample
     sample-interval: 60s
 
   boot_time:
     paths:
-    - system/state/boot-time
+      - /system/state/boot-time
     mode: stream
     stream-mode: sample
     sample-interval: 60s
 
-  hardware:
+  chassis_eos:
     paths:
-    - components/component/state
-    - eos_native:/Sysdb/hardware/entmib
+      - /components/component[name=Chassis]/state
+      - /components/component[name=EOS]/state
+    mode: stream
+    stream-mode: sample
+    sample-interval: 60s
+
+  hardware_oc:
+    paths:
+      - /components/component[name=*]/state
+    mode: stream
+    stream-mode: sample
+    sample-interval: 60s
+
+  hardware_native:
+    paths:
+      - eos_native:/Sysdb/hardware/entmib
     mode: stream
     stream-mode: sample
     sample-interval: 60s
@@ -129,13 +164,7 @@ outputs:
       - bounce-map
       - eos-version
       # - tag-status
-      #- set-timestamp-processor
-  # stdout:
-  #   type: file
-  #   file-type: stdout
-  #   event-processors:
-  #     - proc-convert-strings-to-int
-  #     - trim-prefixes
+      # - set-timestamp-processor
 
 processors:
   eos-version:
@@ -148,10 +177,7 @@ processors:
             apply-on: "value"
             old: "EOS"
             new: "eos"
-    # event-to-tag:
-    #   value-names:
-    #     - ".*version$"
-    #     - ".*arch$"
+
   trim-prefixes:
     event-strings:
       value-names:
@@ -159,6 +185,7 @@ processors:
       transforms:
         - path-base:
             apply-on: "name"
+
   bounce-map:
     event-strings:
       value-names:

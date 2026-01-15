@@ -1,11 +1,15 @@
 loki.write "to_loki" {
   endpoint {
-    url = "http://clab-arista-evpn-vxlan-lab-loki:3100/loki/api/v1/push"
+    url        = "http://clab-arista-evpn-vxlan-lab-loki:3100/loki/api/v1/push"
+    batch_wait = "250ms"
+    batch_size = "512KiB"
   }
 }
 
-discovery.relabel "syslog_rules" {
-  targets = []
+loki.relabel "syslog_rules" {
+  // Required even if you're only using `.rules`.
+  // Empty list is fine when using this component only as a rules exporter.
+  forward_to = []
 
   // -----------------------------
   // Host handling
@@ -17,6 +21,7 @@ discovery.relabel "syslog_rules" {
     source_labels = ["__syslog_message_hostname"]
     target_label  = "host"
     regex         = "(.+)"
+    replacement   = "$1"
   }
 
   // Clear RFC NILVALUE "-"
@@ -34,6 +39,7 @@ discovery.relabel "syslog_rules" {
     source_labels = ["__syslog_connection_ip_address"]
     target_label  = "sender_ip"
     regex         = "(.+)"
+    replacement   = "$1"
   }
 
   // Syslog facility
@@ -42,6 +48,7 @@ discovery.relabel "syslog_rules" {
     source_labels = ["__syslog_message_facility"]
     target_label  = "facility"
     regex         = "(.+)"
+    replacement   = "$1"
   }
 
   // Application name
@@ -50,6 +57,7 @@ discovery.relabel "syslog_rules" {
     source_labels = ["__syslog_message_app_name"]
     target_label  = "app"
     regex         = "(.+)"
+    replacement   = "$1"
   }
 
   // -----------------------------
@@ -143,7 +151,7 @@ discovery.relabel "syslog_rules" {
 }
 
 //
-// Listener 1: RFC5424 on UDP 1514 (messages like "<PRI>1 2026-...")
+// Listener 1: RFC5424 on UDP 1514
 //
 loki.source.syslog "ceos_5424" {
   listener {
@@ -156,12 +164,15 @@ loki.source.syslog "ceos_5424" {
     }
   }
 
-  relabel_rules = discovery.relabel.syslog_rules.rules
-  forward_to    = [loki.write.to_loki.receiver]
+  // Apply relabeling rules to each log entry before forwarding
+  relabel_rules = loki.relabel.syslog_rules.rules
+
+  // Forward to Loki
+  forward_to = [loki.write.to_loki.receiver]
 }
 
 //
-// Listener 2: RFC3164 on UDP 1515 (messages like "<PRI>Jan 14 18:53:27 ...")
+// Listener 2: RFC3164 on UDP 1515
 //
 loki.source.syslog "ceos_3164" {
   listener {
@@ -174,6 +185,6 @@ loki.source.syslog "ceos_3164" {
     }
   }
 
-  relabel_rules = discovery.relabel.syslog_rules.rules
+  relabel_rules = loki.relabel.syslog_rules.rules
   forward_to    = [loki.write.to_loki.receiver]
 }
