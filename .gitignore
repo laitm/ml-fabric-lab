@@ -10,8 +10,5 @@ clab-*/
 debug/*
 !debug/.gitkeep
 
-# Containerlab artifacts (uncomment if you create these)
-# .cl
-
 #My persist folder
 persist/*
