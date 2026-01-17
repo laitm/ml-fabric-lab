@@ -161,7 +161,7 @@ topology:
               stage: create
       binds:
         - configs/gnmic/gnmic-config.yml:/gnmic-config.yml:ro
-      cmd: subscribe --config /gnmic-config.yml --log
+      cmd: "--config /gnmic-config.yml subscribe --output prometheus"
       ports:
         - 9804:9804
       group: 10

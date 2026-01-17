@@ -1,202 +1,86 @@
+# ==========================================================
+# gNMIc configuration
+# - Arista EOS (OpenConfig)
+# - BGP neighbor telemetry
+# - Prometheus exporter
+# ==========================================================
+
 username: admin
 password: admin
-port: 6030
 timeout: 10s
 insecure: true
 encoding: json_ietf
-# debug: true
+debug: true
 
+# ----------------------------------------------------------
+# Targets
+# ----------------------------------------------------------
 targets:
   spine1:
     address: spine1:6030
-    insecure: true
   spine2:
     address: spine2:6030
-    insecure: true
   leaf1:
     address: leaf1:6030
-    insecure: true
   leaf2:
     address: leaf2:6030
-    insecure: true
   leaf3:
     address: leaf3:6030
-    insecure: true
   leaf4:
     address: leaf4:6030
-    insecure: true
 
+# ----------------------------------------------------------
+# Subscriptions
+# ----------------------------------------------------------
 subscriptions:
   bgp_neighbors:
-    paths:
-      - /network-instances/network-instance[name=default]/protocols/protocol[name=BGP]/bgp/neighbors
     mode: stream
     stream-mode: sample
     sample-interval: 5s
-
-  cpu:
     paths:
-      - /components/component[name=*]/cpu
-    mode: stream
-    stream-mode: sample
-    sample-interval: 5s
+      # ---------- Peer identity ----------
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/peer-as
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/peer-group
 
-  cpu_load_avg:
-    paths:
-      - eos_native:/Kernel/sysinfo
-    mode: stream
-    stream-mode: sample
-    sample-interval: 5s
+      # ---------- Session health ----------
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/session-state
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/established-transitions
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/last-established
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/uptime
 
-  mem:
-    paths:
-      - /components/component[name=*]/state/memory
-      - /system/memory/kernel/state
-      - /system/memory/state
-    mode: stream
-    stream-mode: sample
-    sample-interval: 5s
+      # ---------- Message counters ----------
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/messages/sent/UPDATE
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/messages/received/UPDATE
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/messages/sent/NOTIFICATION
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/messages/received/NOTIFICATION
 
-  sw_info:
-    paths:
-      - /components/component[name=*]/state/software-version
-      - /components/component[name=*]/state/serial-no
-    mode: stream
-    stream-mode: sample
-    sample-interval: 60s
+      # ---------- Prefix counters ----------
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/prefixes/received
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/prefixes/accepted
+      - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/neighbors/neighbor/state/prefixes/sent
 
-  intf_ctrs:
-    paths:
-      - /interfaces/interface[name=*]/state/counters
-    mode: stream
-    stream-mode: sample
-    sample-interval: 5s
+  bgp_global:
+      mode: stream
+      stream-mode: sample
+      sample-interval: 10s
+      paths:
+        # overall BGP RIB/prefix count
+        - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/global/state/total-prefixes
+        # per AFI/SAFI prefix count (you currently have IPV4_UNICAST only)
+        - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/global/afi-safis/afi-safi/state/afi-safi-name
+        - /network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=BGP]/bgp/global/afi-safis/afi-safi/state/total-prefixes
 
-  intf_admin_state:
-    paths:
-      - /interfaces/interface[name=*]/state/admin-status
-    mode: stream
-    stream-mode: sample
-    sample-interval: 5s
-
-  intf_oper_state:
-    paths:
-      - /interfaces/interface[name=*]/state/oper-status
-    mode: stream
-    stream-mode: sample
-    sample-interval: 5s
-
-  intf_state:
-    paths:
-      - /interfaces/interface[name=*]/state
-    mode: stream
-    stream-mode: sample
-    sample-interval: 30s
-
-  intf_config:
-    paths:
-      - /interfaces/interface[name=*]/subinterfaces/subinterface[index=*]/ipv4/addresses/address[ip=*]/config
-    mode: stream
-    stream-mode: sample
-    sample-interval: 30s
-
-  lldp_neighbors:
-    paths:
-      - /lldp/interfaces/interface[name=*]/neighbors/neighbor/state
-    mode: stream
-    stream-mode: sample
-    sample-interval: 30s
-
-  lldp_counters:
-    paths:
-      - /lldp/interfaces/interface[name=*]/state/counters
-    mode: stream
-    stream-mode: sample
-    sample-interval: 30s
-
-  show_ver:
-    paths:
-      - eos_native:/Eos/image
-    mode: stream
-    stream-mode: sample
-    sample-interval: 60s
-
-  boot_time:
-    paths:
-      - /system/state/boot-time
-    mode: stream
-    stream-mode: sample
-    sample-interval: 60s
-
-  chassis_eos:
-    paths:
-      - /components/component[name=Chassis]/state
-      - /components/component[name=EOS]/state
-    mode: stream
-    stream-mode: sample
-    sample-interval: 60s
-
-  hardware_oc:
-    paths:
-      - /components/component[name=*]/state
-    mode: stream
-    stream-mode: sample
-    sample-interval: 60s
-
-  hardware_native:
-    paths:
-      - eos_native:/Sysdb/hardware/entmib
-    mode: stream
-    stream-mode: sample
-    sample-interval: 60s
-
+# ----------------------------------------------------------
+# Outputs
+# ----------------------------------------------------------
 outputs:
-  prom-output:
+  prometheus:
     type: prometheus
-    listen: "0.0.0.0:9804"
+    listen: 0.0.0.0:9804
+    path: /metrics
     metric-prefix: gnmic
     append-subscription-name: true
     strings-as-labels: true
-    export-timestamps: true
-    debug: false
-    event-processors:
-      - trim-prefixes
-      - bounce-map
-      - eos-version
-      # - tag-status
-      # - set-timestamp-processor
-
-processors:
-  eos-version:
-    event-strings:
-      value-names:
-        - ".*version$"
-        - ".*arch$"
-      transforms:
-        - replace:
-            apply-on: "value"
-            old: "EOS"
-            new: "eos"
-
-  trim-prefixes:
-    event-strings:
-      value-names:
-        - ".*"
-      transforms:
-        - path-base:
-            apply-on: "name"
-
-  bounce-map:
-    event-strings:
-      value-names:
-        - oper-status
-        - admin-status
-      transforms:
-        - replace:
-            apply-on: "value"
-            old: "UP"
-            new: "1"
-        - replace:
-            apply-on: "value"
-            old: "DOWN"
-            new: "0"
+    format: flat
+    expiration: 10m
+    export-timestamps: false

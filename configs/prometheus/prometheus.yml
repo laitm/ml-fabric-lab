@@ -5,42 +5,49 @@ scrape_configs:
 
     static_configs:
       - targets:
-          - gnmic:9804
+          - clab-arista-evpn-vxlan-lab-gnmic:9804
         labels:
           exporter: gnmic
           stack: telemetry
 
+    # (Optional) keep normal relabeling ONLY for target labels.
     relabel_configs:
+      # Example: set instance to the scrape target (gnmic)
+      - source_labels: [__address__]
+        target_label: instance
+
+    # ✅ This is what you want: operate on metric labels like "source"
+    metric_relabel_configs:
       # --------------------------------------------------
       # Use gNMIc "source" label as device name
-      # (e.g. leaf1, spine2)
+      # (e.g. leaf1:6030 -> leaf1)
       # --------------------------------------------------
       - source_labels: [source]
         target_label: device
-        regex: (.+)
+        regex: '([^:]+)(?::.*)?'
+        replacement: '$1'
 
       # --------------------------------------------------
       # Set instance = device (Grafana convention)
       # --------------------------------------------------
       - source_labels: [device]
         target_label: instance
-        regex: (.+)
 
       # --------------------------------------------------
       # Derive role from device name
       # --------------------------------------------------
       - source_labels: [device]
         target_label: role
-        regex: (leaf.*)
+        regex: 'leaf.*'
         replacement: leaf
 
       - source_labels: [device]
         target_label: role
-        regex: (spine.*)
+        regex: 'spine.*'
         replacement: spine
 
       # --------------------------------------------------
       # Drop noisy internal labels if desired (optional)
       # --------------------------------------------------
       - action: labeldrop
-        regex: subscription_name|path|encoding
+        regex: 'subscription_name|path|encoding'
