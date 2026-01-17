@@ -12,3 +12,4 @@ debug/*
 
 #My persist folder
 persist/*
+.venv/*
