@@ -3,6 +3,14 @@ site_description: Split Fabric & Management containerlab labs with real traffic 
 
 theme:
   name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.follow
 
 nav:
   - Home: index.md
@@ -17,19 +25,28 @@ nav:
       - ntopng Usage: ntopng.md
 
 markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+
+  # Mermaid support
+  - pymdownx.details
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
+
+  # Code niceties
   - pymdownx.highlight
-  - pymdownx.details
-  - toc:
-      permalink: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
 
 plugins:
   - search
 
 extra_css:
   - styles/extra.css
-EOF
-
