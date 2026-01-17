@@ -1,0 +1,92 @@
+name: arista-evpn-vxlan-mgmt
+
+mgmt:
+  network: clab-mgmt
+
+topology:
+  nodes:
+    gnmic:
+      kind: linux
+      image: ghcr.io/openconfig/gnmic:latest
+      mgmt-ipv4: 172.20.20.213
+      binds:
+        - configs/gnmic/gnmic-config.yml:/gnmic-config.yml:ro
+      cmd: "--config /gnmic-config.yml subscribe --output prometheus"
+      ports:
+        - 9804:9804
+
+    prometheus:
+      kind: linux
+      image: quay.io/prometheus/prometheus:latest
+      mgmt-ipv4: 172.20.20.214
+      binds:
+        - configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+        - ./persist/prometheus:/prometheus
+      cmd: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus"
+      ports:
+        - 9090:9090
+
+    grafana:
+      kind: linux
+      image: grafana/grafana:latest
+      mgmt-ipv4: 172.20.20.215
+      binds:
+        - configs/grafana/provisioning:/etc/grafana/provisioning:ro
+        - configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
+        - ./persist/grafana:/var/lib/grafana
+      env:
+        GF_SECURITY_ADMIN_USER: admin
+        GF_SECURITY_ADMIN_PASSWORD: admin
+        GF_USERS_ALLOW_SIGN_UP: "false"
+      ports:
+        - 3000:3000
+
+    alloy:
+      kind: linux
+      image: grafana/alloy:latest
+      mgmt-ipv4: 172.20.20.216
+      binds:
+        - configs/alloy:/etc/alloy:ro
+      cmd: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+      ports:
+        - 1514:1514/udp
+        - 1514:1514/tcp
+        - 12345:12345
+
+    loki:
+      kind: linux
+      image: grafana/loki:3.2.0
+      mgmt-ipv4: 172.20.20.217
+      binds:
+        - configs/loki:/etc/loki:ro
+        - ./persist/loki:/loki
+      cmd: --config.file=/etc/loki/loki-config.yml
+      ports:
+        - 3100:3100
+
+    redis:
+      kind: linux
+      image: redis:7-alpine
+      mgmt-ipv4: 172.20.20.218
+      binds:
+        - ./persist/redis:/data
+
+    ntopng:
+      kind: linux
+      image: ntop/ntopng:latest
+      mgmt-ipv4: 172.20.20.219
+      cmd: >
+        /bin/sh -lc
+        'exec ntopng --community --redis redis -i eth1 --disable-autologout'
+      binds:
+        - ./persist/ntopng:/var/lib/ntopng
+      ports:
+        - 3001:3000
+
+    # Same host Linux bridge as fabric lab
+    br-fabric-tap:
+      kind: bridge
+
+  links:
+    # ntopng sniffs mirrored fabric traffic
+    - endpoints: ["ntopng:eth1", "br-fabric-tap:ntopeth1"]

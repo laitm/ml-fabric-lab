@@ -1,0 +1,84 @@
+name: arista-evpn-vxlan-fabric
+
+mgmt:
+  network: clab-mgmt
+
+topology:
+  kinds:
+    arista_ceos:
+      image: ceos:4.35.1F
+    linux:
+      image: ghcr.io/hellt/network-multitool:latest
+
+  nodes:
+    spine1:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.11
+      startup-config: configs/fabric/spine1.cfg
+
+    spine2:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.12
+      startup-config: configs/fabric/spine2.cfg
+
+    leaf1:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.21
+      startup-config: configs/fabric/leaf1.cfg
+
+    leaf2:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.22
+      startup-config: configs/fabric/leaf2.cfg
+
+    leaf3:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.23
+      startup-config: configs/fabric/leaf3.cfg
+
+    leaf4:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.20.24
+      startup-config: configs/fabric/leaf4.cfg
+
+    host1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.101
+      exec:
+        - ip link set eth1 up
+        - ip addr add 192.168.10.101/24 dev eth1
+        - ip route replace default via 192.168.10.1
+
+    host2:
+      kind: linux
+      mgmt-ipv4: 172.20.20.102
+      exec:
+        - ip link set eth1 up
+        - ip addr add 192.168.10.102/24 dev eth1
+        - ip route replace default via 192.168.10.1
+        - sh -lc 'iperf3 -s -D'
+
+    # Host Linux bridge (must exist in OrbStack VM)
+    br-fabric-tap:
+      kind: bridge
+
+  links:
+    # Leaf ↔ Spine
+    - endpoints: ["leaf1:eth1", "spine1:eth1"]
+    - endpoints: ["leaf1:eth2", "spine2:eth1"]
+
+    - endpoints: ["leaf2:eth1", "spine1:eth3"]
+    - endpoints: ["leaf2:eth2", "spine2:eth3"]
+
+    - endpoints: ["leaf3:eth1", "spine1:eth5"]
+    - endpoints: ["leaf3:eth2", "spine2:eth5"]
+
+    - endpoints: ["leaf4:eth1", "spine1:eth7"]
+    - endpoints: ["leaf4:eth2", "spine2:eth7"]
+
+    # Hosts
+    - endpoints: ["host1:eth1", "leaf1:eth10"]
+    - endpoints: ["host2:eth1", "leaf4:eth10"]
+
+    # SPAN / TAP output (leaf1 eth5 must be SPAN destination in EOS)
+    - endpoints: ["leaf1:eth5", "br-fabric-tap:leaf1eth5"]
